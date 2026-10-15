@@ -1,6 +1,6 @@
 // Offline cache for the sudoku home-screen app.
 // Serves cached files instantly and refreshes them in the background, so edits show up on the next launch.
-const CACHE = 'sudoku-v1';
+const CACHE = 'sudoku-v2';
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
