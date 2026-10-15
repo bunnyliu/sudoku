@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="스도쿠">
+<meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16181d" media="(prefers-color-scheme: dark)">
+<title>스도쿠</title>
+<style>
+  :root {
+    --bg: #f4f1ea; --panel: #fffdf8; --ink: #1f2430; --muted: #7a7f8c; --line: #c9c3b6; --bold: #39404f;
+    --sel: #ffd98a; --peer: #f2ebdc; --same: #ffe9b8; --given: #1f2430; --user: #2f6fd6; --memo: #5d6475;
+    --bad: #d64545; --badbg: #fde3e3; --btn: #ece6d9; --btnon: #2f6fd6; --ok: #2e9b5f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16181d; --panel: #1f2229; --ink: #e9eaee; --muted: #8d93a1; --line: #3a3f4b; --bold: #9aa2b3;
+      --sel: #6b5520; --peer: #262a33; --same: #4a3d1c; --given: #e9eaee; --user: #7fb0ff; --memo: #a9b0bf;
+      --bad: #ff7b7b; --badbg: #4a2326; --btn: #2a2e37; --btnon: #4f8ef0; --ok: #4fcf8a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Segoe UI", sans-serif; -webkit-tap-highlight-color: transparent; }
+  body { min-height: 100vh; display: flex; justify-content: center;
+    padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  .app { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 12px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  h1 { margin: 0; font-size: 24px; letter-spacing: -0.5px; }
+  .stats { display: flex; gap: 14px; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .stats b { color: var(--ink); font-weight: 600; }
+  .levels { display: flex; gap: 6px; }
+  .levels button { flex: 1; }
+
+  .board { display: grid; grid-template-columns: repeat(9, 1fr); aspect-ratio: 1; width: 100%;
+    background: var(--panel); border: 2px solid var(--bold); border-radius: 6px; overflow: hidden; user-select: none; }
+  .cell { position: relative; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    font-size: clamp(20px, 6.4vw, 30px); font-weight: 500; color: var(--user); }
+  .cell:nth-child(9n) { border-right: none; }
+  .cell.c2, .cell.c5 { border-right: 2px solid var(--bold); }
+  .cell.r2, .cell.r5 { border-bottom: 2px solid var(--bold); }
+  .cell.r8 { border-bottom: none; }
+  .cell.peer { background: var(--peer); }
+  .cell.same { background: var(--same); }
+  .cell.sel { background: var(--sel); }
+  .cell.given { color: var(--given); font-weight: 700; }
+  .cell.bad { color: var(--bad); }
+  .cell.bad:not(.sel) { background: var(--badbg); }
+  .memos { position: absolute; inset: 2px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+  .memos span { display: flex; align-items: center; justify-content: center; font-size: clamp(9px, 2.6vw, 12px);
+    color: var(--memo); font-weight: 500; line-height: 1; }
+  .memos span.hl { color: var(--ink); background: var(--same); border-radius: 3px; font-weight: 700; }
+
+  .tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  button { font: inherit; border: none; border-radius: 10px; background: var(--btn); color: var(--ink);
+    padding: 10px 4px; cursor: pointer; font-size: 14px; }
+  button:active { transform: scale(0.97); }
+  button.on { background: var(--btnon); color: #fff; }
+  .tools button { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 13px; }
+  .tools .ic { font-size: 20px; line-height: 1; }
+  .pad { display: grid; grid-template-columns: repeat(9, 1fr); gap: 5px; }
+  .pad button { font-size: clamp(20px, 6vw, 26px); font-weight: 600; padding: 8px 0 4px; color: var(--user);
+    display: flex; flex-direction: column; align-items: center; }
+  .pad button small { font-size: 10px; color: var(--muted); font-weight: 500; }
+  .pad button.done { opacity: 0.3; }
+  .pad.memo-mode button { color: var(--memo); font-weight: 500; }
+  .hint { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.5; }
+
+  .win { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; padding: 16px; }
+  .win.show { display: flex; }
+  .win .card { background: var(--panel); border-radius: 16px; padding: 28px 24px; text-align: center; max-width: 320px; width: 100%; }
+  .win h2 { margin: 0 0 8px; font-size: 28px; color: var(--ok); }
+  .win p { margin: 0 0 18px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>스도쿠</h1>
+    <div class="stats"><span>난이도 <b id="lvl">-</b></span><span>실수 <b id="mist">0</b></span><span>⏱ <b id="time">00:00</b></span></div>
+  </header>
+  <div class="levels">
+    <button data-level="easy">쉬움</button><button data-level="medium">보통</button>
+    <button data-level="hard">어려움</button><button data-level="expert">매우 어려움</button>
+  </div>
+  <div class="board" id="board"></div>
+  <div class="tools">
+    <button id="undo"><span class="ic">↶</span>되돌리기</button>
+    <button id="erase"><span class="ic">⌫</span>지우기</button>
+    <button id="memo"><span class="ic">✎</span>메모 <span id="memoState">끔</span></button>
+    <button id="hint"><span class="ic">💡</span>힌트</button>
+  </div>
+  <div class="pad" id="pad"></div>
+  <div class="hint">칸을 고르고 숫자를 누르세요. <b>메모</b>를 켜면 그 칸에 가능한 숫자를 작게 적어 둘 수 있어요.<br>
+    키보드: 숫자 1–9 · 방향키 이동 · N 메모 켜기/끄기 · Shift+숫자 메모 · Backspace 지우기 · Ctrl/⌘+Z 되돌리기</div>
+</div>
+<div class="win" id="win"><div class="card"><h2>완성! 🎉</h2><p id="winText"></p><button id="again" class="on" style="width:100%">새 게임</button></div></div>
+
+<script>
+// ================= Puzzle generator =================
+const LEVELS = { easy: ['쉬움', 40], medium: ['보통', 33], hard: ['어려움', 28], expert: ['매우 어려움', 24] };
+const ROW = i => Math.floor(i / 9), COL = i => i % 9, BOX = i => Math.floor(ROW(i) / 3) * 3 + Math.floor(COL(i) / 3);
+const PEERS = Array.from({ length: 81 }, (_, i) => {
+  const s = new Set();
+  for (let j = 0; j < 81; j++) if (j !== i && (ROW(j) === ROW(i) || COL(j) === COL(i) || BOX(j) === BOX(i))) s.add(j);
+  return [...s];
+});
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const canPlace = (g, i, n) => PEERS[i].every(j => g[j] !== n);
+
+function fillGrid(g) {
+  const i = g.indexOf(0);
+  if (i === -1) return true;
+  for (const n of shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9])) {
+    if (canPlace(g, i, n)) { g[i] = n; if (fillGrid(g)) return true; g[i] = 0; }
+  }
+  return false;
+}
+// counts solutions up to `limit`, choosing the most constrained cell first
+function countSolutions(g, limit = 2) {
+  let best = -1, bestOpts = null;
+  for (let i = 0; i < 81; i++) if (!g[i]) {
+    const opts = [];
+    for (let n = 1; n <= 9; n++) if (canPlace(g, i, n)) opts.push(n);
+    if (!opts.length) return 0;
+    if (!bestOpts || opts.length < bestOpts.length) { best = i; bestOpts = opts; if (opts.length === 1) break; }
+  }
+  if (best === -1) return 1;
+  let count = 0;
+  for (const n of bestOpts) {
+    g[best] = n; count += countSolutions(g, limit - count); g[best] = 0;
+    if (count >= limit) break;
+  }
+  return count;
+}
+function generate(clues) {
+  const solution = Array(81).fill(0);
+  fillGrid(solution);
+  const puzzle = solution.slice();
+  let filled = 81;
+  for (const i of shuffle([...Array(81).keys()])) {
+    if (filled <= clues) break;
+    const keep = puzzle[i];
+    puzzle[i] = 0;
+    if (countSolutions(puzzle.slice()) !== 1) puzzle[i] = keep; else filled--;
+  }
+  return { puzzle, solution };
+}
+
+// ================= State =================
+let G;            // { level, puzzle, solution, values, memos(array of 9-bit masks), mistakes, seconds, done }
+let sel = 40, memoMode = false, history = [];
+const SAVE_KEY = 'sudoku-save-v1';
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) {} }
+function load() {
+  try { const g = JSON.parse(localStorage.getItem(SAVE_KEY)); if (g && g.values && g.values.length === 81) return g; } catch (e) {}
+  return null;
+}
+function newGame(level) {
+  const { puzzle, solution } = generate(LEVELS[level][1]);
+  G = { level, puzzle, solution, values: puzzle.slice(), memos: Array(81).fill(0), mistakes: 0, seconds: 0, done: false };
+  history = []; sel = 40;
+  document.getElementById('win').classList.remove('show');
+  save(); render();
+}
+
+// ================= Actions =================
+const bit = n => 1 << (n - 1);
+function snapshot() { history.push({ v: G.values.slice(), m: G.memos.slice() }); if (history.length > 300) history.shift(); }
+function input(n) {
+  if (G.done || G.puzzle[sel]) return;
+  if (memoMode) {
+    if (G.values[sel]) return;
+    snapshot();
+    G.memos[sel] ^= bit(n);
+  } else {
+    if (G.values[sel] === n) return;
+    snapshot();
+    G.values[sel] = n;
+    G.memos[sel] = 0;
+    if (n !== G.solution[sel]) G.mistakes++;
+    else for (const j of PEERS[sel]) G.memos[j] &= ~bit(n);      // a correct number clears that memo from its row/col/box
+    checkWin();
+  }
+  save(); render();
+}
+function erase() {
+  if (G.done || G.puzzle[sel] || (!G.values[sel] && !G.memos[sel])) return;
+  snapshot();
+  G.values[sel] = 0; G.memos[sel] = 0;
+  save(); render();
+}
+function undo() {
+  const h = history.pop();
+  if (!h || G.done) return;
+  G.values = h.v; G.memos = h.m;
+  save(); render();
+}
+function hint() {
+  if (G.done) return;
+  let i = sel;
+  if (G.values[i] === G.solution[i]) {           // selected cell already right: pick an empty/wrong one
+    const open = [...Array(81).keys()].filter(k => G.values[k] !== G.solution[k]);
+    if (!open.length) return;
+    i = open[Math.floor(Math.random() * open.length)];
+  }
+  snapshot();
+  sel = i;
+  G.values[i] = G.solution[i]; G.memos[i] = 0;
+  for (const j of PEERS[i]) G.memos[j] &= ~bit(G.solution[i]);
+  checkWin(); save(); render();
+}
+function checkWin() {
+  if (G.values.every((v, i) => v === G.solution[i])) {
+    G.done = true;
+    document.getElementById('winText').textContent =
+      `${LEVELS[G.level][0]} · ${fmt(G.seconds)} · 실수 ${G.mistakes}번`;
+    setTimeout(() => document.getElementById('win').classList.add('show'), 300);
+  }
+}
+function setMemoMode(on) { memoMode = on; render(); }
+
+// ================= Rendering =================
+const boardEl = document.getElementById('board'), padEl = document.getElementById('pad');
+const cells = [];
+for (let i = 0; i < 81; i++) {
+  const d = document.createElement('div');
+  d.className = `cell r${ROW(i)} c${COL(i)}`;
+  d.addEventListener('pointerdown', () => { sel = i; render(); });
+  boardEl.appendChild(d); cells.push(d);
+}
+const padBtns = [];
+for (let n = 1; n <= 9; n++) {
+  const b = document.createElement('button');
+  b.innerHTML = `${n}<small></small>`;
+  b.addEventListener('click', () => input(n));
+  padEl.appendChild(b); padBtns.push(b);
+}
+const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+function render() {
+  const sv = G.values[sel];
+  for (let i = 0; i < 81; i++) {
+    const d = cells[i], v = G.values[i];
+    const peer = ROW(i) === ROW(sel) || COL(i) === COL(sel) || BOX(i) === BOX(sel);
+    d.className = `cell r${ROW(i)} c${COL(i)}` +
+      (G.puzzle[i] ? ' given' : '') +
+      (i === sel ? ' sel' : sv && v === sv ? ' same' : peer ? ' peer' : '') +
+      (v && v !== G.solution[i] ? ' bad' : '');
+    if (v) d.textContent = v;
+    else if (G.memos[i]) {
+      d.textContent = '';
+      const g = document.createElement('div'); g.className = 'memos';
+      for (let n = 1; n <= 9; n++) {
+        const s = document.createElement('span');
+        if (G.memos[i] & bit(n)) { s.textContent = n; if (n === sv) s.className = 'hl'; }
+        g.appendChild(s);
+      }
+      d.appendChild(g);
+    } else d.textContent = '';
+  }
+  for (let n = 1; n <= 9; n++) {
+    const left = 9 - G.values.filter((v, i) => v === n && v === G.solution[i]).length;
+    padBtns[n - 1].querySelector('small').textContent = left ? left : '';
+    padBtns[n - 1].classList.toggle('done', left === 0);
+  }
+  padEl.classList.toggle('memo-mode', memoMode);
+  document.getElementById('memo').classList.toggle('on', memoMode);
+  document.getElementById('memoState').textContent = memoMode ? '켬' : '끔';
+  document.getElementById('lvl').textContent = LEVELS[G.level][0];
+  document.getElementById('mist').textContent = G.mistakes;
+  document.getElementById('time').textContent = fmt(G.seconds);
+  document.querySelectorAll('.levels button').forEach(b => b.classList.toggle('on', b.dataset.level === G.level));
+}
+
+// ================= Input wiring =================
+document.querySelectorAll('.levels button').forEach(b => b.addEventListener('click', () => {
+  const started = G.values.some((v, i) => v && !G.puzzle[i]) && !G.done;
+  if (started && !confirm('지금 게임을 버리고 새 게임을 시작할까요?')) return;
+  newGame(b.dataset.level);
+}));
+document.getElementById('undo').onclick = undo;
+document.getElementById('erase').onclick = erase;
+document.getElementById('memo').onclick = () => setMemoMode(!memoMode);
+document.getElementById('hint').onclick = hint;
+document.getElementById('again').onclick = () => newGame(G.level);
+
+addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); return undo(); }
+  const m = e.code.match(/^(Digit|Numpad)([1-9])$/);
+  if (m) {
+    e.preventDefault();
+    const was = memoMode;
+    if (e.shiftKey) memoMode = true;
+    input(+m[2]);
+    memoMode = was; render();
+    return;
+  }
+  const moves = { ArrowUp: -9, ArrowDown: 9, ArrowLeft: -1, ArrowRight: 1 };
+  if (moves[e.key]) {
+    e.preventDefault();
+    const r = ROW(sel), c = COL(sel);
+    if (e.key === 'ArrowUp') sel = ((r + 8) % 9) * 9 + c;
+    if (e.key === 'ArrowDown') sel = ((r + 1) % 9) * 9 + c;
+    if (e.key === 'ArrowLeft') sel = r * 9 + (c + 8) % 9;
+    if (e.key === 'ArrowRight') sel = r * 9 + (c + 1) % 9;
+    return render();
+  }
+  if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') { e.preventDefault(); return erase(); }
+  if (e.key === 'n' || e.key === 'N') setMemoMode(!memoMode);
+});
+
+setInterval(() => {
+  if (!G || G.done || document.hidden) return;
+  G.seconds++;
+  document.getElementById('time').textContent = fmt(G.seconds);
+  if (G.seconds % 5 === 0) save();
+}, 1000);
+
+G = load();
+if (G) { G.memos = G.memos || Array(81).fill(0); render(); if (G.done) newGame(G.level); }
+else newGame('easy');
+
+// offline support (home-screen app): only works when served over https
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
